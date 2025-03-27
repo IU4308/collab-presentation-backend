@@ -5,6 +5,7 @@ import cors from 'cors';
 import './config/db.js';
 import { Presentation } from './model/Presentation.js';
 import { findField, findPresentation, findSlide } from './lib/utils.js';
+import mongoose from 'mongoose';
 
 const app = express();
 const server = createServer(app);
@@ -26,16 +27,51 @@ app.get("/presentations", async(req, res) => {
         res.status(500).send('Error fetching presentations');
     }
 })
+
+app.post('/presentations', async (req, res) => {
+    const { username, title } = req.body;
+    try {
+        const newPresentation = new Presentation({
+            presentationId: new mongoose.Types.ObjectId().toString(),
+            creatorId: username,
+            cover: '/blank.jpg',
+            slides: [
+                {
+                    slideId: new mongoose.Types.ObjectId().toString(),
+                    src: "/blank.jpg",
+                    alt: "Slide 1",
+                    fields: [
+                        {
+                            position: {
+                                "x": 100,
+                                "y": 300
+                            },
+                            id: new mongoose.Types.ObjectId().toString(),
+                            content: "<p>test</p>",
+                        }
+                    ]
+                }
+            ]
+        });
+        await newPresentation.save();
+        io.emit('newPresentation', newPresentation);
+        res.status(201).json(newPresentation);
+    } catch (error) {
+        console.error('Error creating presentation:', error.message);
+        res.status(500).send('Error creating presentation');
+    }
+})
   
 app.get("/presentations/:presentationId", async (req, res) => {
   const { presentationId } = req.params;
   try {
       const presentation = await findPresentation(presentationId);
+    //   const newUser ={ presentationId, username: 'Unknown', role: 'viewer' }
+    //   io.emit('joinPresentation', newUser)
       res.json(presentation);
   } catch (error) {
       console.error('Error fetching presentation:', error.message);
       res.status(500).send('Error fetching presentation');
-
   }
 })
 
@@ -90,16 +126,48 @@ app.put(`/presentations/:presentationId/slides/:slideId/fields/:selectedId`, asy
 })
 
 
+let users = [];
+
 io.on('connection', async (socket) => {
     console.log('New client connected');
     socket.on('updateField', ({ slideId, fieldId, updatedField }) => {
         console.log(`Field updated: ${fieldId}`, updatedField);
         socket.broadcast.emit('fieldUpdated', { slideId, fieldId, updatedField });
     })
+
+    socket.on('joinPresentation', async ({ presentationId, username }) => {
+        console.log(`User ${username} joined the presentation ${presentationId}`)
+        const presentation = await Presentation.findOne({ presentationId });
+        let role = 'viewer';
+        if (username === presentation.creatorId) {
+            role = 'creator';
+        }
+
+        const newUser = { socketId: socket.id, presentationId, username, role }
+        const existingUser = users.find((user) => user.socketId === socket.id);
+        if (!existingUser) {
+            users.push(newUser)
+        }
+        io.emit('userEvent', (users))
+    })
+
+    socket.on('updateRole', ({ userId, role }) => {
+        const user = users.find((user) => user.socketId === userId);
+        if (user) {
+            user.role = role;
+            console.log(`Updated role of ${user.username} to ${role}`);
+            io.emit('userEvent', users);
+        } else {
+            console.log(`User with socketId ${userId} not found`);
+        }
+    })
+
     socket.on('disconnect', () => {
         console.log('Client disconnected');
+        users = users.filter((user) => user.socketId !== socket.id);
+        io.emit('userEvent', (users))
     });
 });
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

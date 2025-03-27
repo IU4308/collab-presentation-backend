@@ -1,11 +1,10 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import { v4 as uuidv4 } from 'uuid'; // For generating unique IDs
-import { Presentation } from '../model/Presentation.js'; // Import the Presentation model
+import { v4 as uuidv4 } from 'uuid'; 
+import { Presentation } from '../model/Presentation.js';
 
-dotenv.config(); // Load environment variables
+dotenv.config();
 
-// Connect to MongoDB
 mongoose.connect(process.env.DATABASE_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
@@ -15,7 +14,6 @@ mongoose.connect(process.env.DATABASE_URI, {
     console.error('Error connecting to MongoDB:', error.message);
 });
 
-// Define initial presentations data
 const presentations = [
     {
         presentationId: uuidv4(),
@@ -81,18 +79,14 @@ const presentations = [
     },
 ];
 
-// Seed the database
 const seedDatabase = async () => {
     try {
-        // Clear existing data
         await Presentation.deleteMany({});
         console.log('Existing presentations cleared');
 
-        // Insert new data
         await Presentation.insertMany(presentations);
         console.log('Presentations seeded successfully');
 
-        // Close the database connection
         mongoose.connection.close();
         console.log('Database connection closed');
     } catch (error) {
@@ -101,5 +95,4 @@ const seedDatabase = async () => {
     }
 };
 
-// Run the seed function
 seedDatabase();
