@@ -34,22 +34,13 @@ app.post('/presentations', async (req, res) => {
         const newPresentation = new Presentation({
             presentationId: new mongoose.Types.ObjectId().toString(),
             creatorId: username,
-            cover: '/blank.jpg',
+            title: title,
             slides: [
                 {
                     slideId: new mongoose.Types.ObjectId().toString(),
                     src: "/blank.jpg",
-                    alt: "Slide 1",
-                    fields: [
-                        {
-                            position: {
-                                "x": 100,
-                                "y": 300
-                            },
-                            id: new mongoose.Types.ObjectId().toString(),
-                            content: "<p>test</p>",
-                        }
-                    ]
+                    alt: "blank",
+                    fields: []
                 }
             ]
         });
@@ -66,13 +57,44 @@ app.get("/presentations/:presentationId", async (req, res) => {
   const { presentationId } = req.params;
   try {
       const presentation = await findPresentation(presentationId);
-    //   const newUser ={ presentationId, username: 'Unknown', role: 'viewer' }
-    //   io.emit('joinPresentation', newUser)
       res.json(presentation);
   } catch (error) {
       console.error('Error fetching presentation:', error.message);
       res.status(500).send('Error fetching presentation');
   }
+})
+
+app.post("/presentations/:presentationId/slides", async (req, res) => {
+    const { presentationId } = req.params; 
+    try {
+        const presentation = await findPresentation(presentationId);
+        presentation.slides.push({
+            slideId: new mongoose.Types.ObjectId().toString(),
+            src: "/blank.jpg",
+            alt: "Slide 1",
+            fields: []
+        })
+        await presentation.save();
+        io.emit('updatePresentation', presentation); 
+        res.status(200).send('Presentation has been updated');
+    } catch (error) {
+        console.error('Error adding new slide:', error.message);
+        res.status(500).send('Error adding new slide');
+    }
+})
+
+app.delete("/presentations/:presentationId/slides/:slideId", async (req, res) => {
+    const { presentationId, slideId } = req.params;
+    try {
+        const presentation = await findPresentation(presentationId);
+        presentation.slides = presentation.slides.filter(slide => slide.slideId != slideId)
+        await presentation.save(); 
+        io.emit('updatePresentation', presentation); 
+        res.status(200).send('Field has been deleted');
+    } catch (error) {
+        console.error('Error deleting field:', error.message);
+        res.status(500).send('Error deleting field');
+    } 
 })
 
 app.post('/presentations/:presentationId/slides/:slideId/fields', async (req, res) => {
@@ -84,7 +106,7 @@ app.post('/presentations/:presentationId/slides/:slideId/fields', async (req, re
         slide.fields.push(newField);
         await presentation.save();
         io.emit('updatePresentation', presentation); 
-        res.status(200).send('Fields updated');
+        res.status(200).send('Fields have been updated');
   } catch (error) {
         console.log('Error updating fields on the server: ', error.message)
         res.status(500).send('Error updating fields');
@@ -99,7 +121,7 @@ app.delete(`/presentations/:presentationId/slides/:slideId/fields/:selectedId`, 
         slide.fields = slide.fields.filter((field) => field.id !== selectedId); 
         await presentation.save(); 
         io.emit('updatePresentation', presentation); 
-        res.status(200).send('Field deleted');
+        res.status(200).send('Field has been deleted');
     } catch (error) {
         console.error('Error deleting field:', error.message);
         res.status(500).send('Error deleting field');
@@ -119,12 +141,11 @@ app.put(`/presentations/:presentationId/slides/:slideId/fields/:selectedId`, asy
         await presentation.save();
 
         io.emit('updatePresentation', presentation);
-        res.status(200).send('Field updated');
+        res.status(200).send('Field has been updated');
     } catch (error) {
         console.log('Error updating fields', error.message)
     }
 })
-
 
 let users = [];
 

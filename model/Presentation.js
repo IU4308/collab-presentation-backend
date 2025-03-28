@@ -2,8 +2,9 @@ import mongoose from 'mongoose';
 
 const presentationSchema = new mongoose.Schema({
     presentationId: { type: String, index: true },
-    cover: String,
+    // cover: String,
     creatorId: String,
+    title: String,
     slides: [
         {
             slideId: String,
