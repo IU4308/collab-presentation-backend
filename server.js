@@ -90,10 +90,26 @@ app.delete("/presentations/:presentationId/slides/:slideId", async (req, res) =>
         presentation.slides = presentation.slides.filter(slide => slide.slideId != slideId)
         await presentation.save(); 
         io.emit('updatePresentation', presentation); 
-        res.status(200).send('Field has been deleted');
+        res.status(200).send('Slide has been deleted');
     } catch (error) {
-        console.error('Error deleting field:', error.message);
-        res.status(500).send('Error deleting field');
+        console.error('Error deleting slide:', error.message);
+        res.status(500).send('Error deleting slide');
+    } 
+})
+
+app.put("/presentations/:presentationId/slides/:slideId", async (req, res) => {
+    const { presentationId, slideId } = req.params;
+    const { template } = req.body
+    try {
+        const presentation = await findPresentation(presentationId);
+        const slide = findSlide(presentation, slideId);
+        slide.src = template;
+        await presentation.save(); 
+        io.emit('updatePresentation', presentation); 
+        res.status(200).send('Slide has been updated');
+    } catch (error) {
+        console.error('Error updating slide:', error.message);
+        res.status(500).send('Error updating slide');
     } 
 })
 
@@ -137,7 +153,6 @@ app.put(`/presentations/:presentationId/slides/:slideId/fields/:selectedId`, asy
         const field = findField(slide, selectedId);
         field.content = updatedField.content;
         field.position = updatedField.position;
-        console.log(field)
         await presentation.save();
 
         io.emit('updatePresentation', presentation);
@@ -152,7 +167,6 @@ let users = [];
 io.on('connection', async (socket) => {
     console.log('New client connected');
     socket.on('updateField', ({ slideId, fieldId, updatedField }) => {
-        console.log(`Field updated: ${fieldId}`, updatedField);
         socket.broadcast.emit('fieldUpdated', { slideId, fieldId, updatedField });
     })
 
